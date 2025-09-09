@@ -60,9 +60,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,test]"
       
-      - name: Check formatting with Black
+      - name: Check formatting with Black (strict)
         run: |
           black --check dropblock.py test/
+          if [ $? -ne 0 ]; then
+            echo "::error::Code is not properly formatted with Black. Run 'black .' to fix formatting before publishing."
+            exit 1
+          fi
       
       - name: Run tests
         run: |
