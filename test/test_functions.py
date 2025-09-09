@@ -190,15 +190,17 @@ class TestDropblockActual(unittest.TestCase):
                 ["attr", "-l", str(self.test_file)],
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
             )
         except FileNotFoundError:
             # attr command not available on this platform - pass with warning
-            print("WARNING: attr command not available on this Linux platform. "
-                  "Dropbox ignore functionality requires attr support. "
-                  "This is a platform limitation, not a test failure.")
+            print(
+                "WARNING: attr command not available on this Linux platform. "
+                "Dropbox ignore functionality requires attr support. "
+                "This is a platform limitation, not a test failure."
+            )
             return  # Pass the test
-        
+
         # attr command is available, now test the actual functionality
         ignorer = DropboxIgnore()
 
