@@ -113,11 +113,10 @@ jobs:
           name: codecov-umbrella
 
   integration-test:
-    #TODO: failing on ubuntu-latest since it doesn't have `attr` on filesystem
     needs: test
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     
     runs-on: ${{ matrix.os }}
     
@@ -138,23 +137,59 @@ jobs:
         run: |
           dropblock --help
       
-      - name: Create test directory structure
+      - name: Create test directory structure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path test_dropbox_ignore\folder1
+          New-Item -ItemType Directory -Force -Path test_dropbox_ignore\folder2
+          "test" | Out-File -FilePath test_dropbox_ignore\file1.txt
+          "test" | Out-File -FilePath test_dropbox_ignore\folder1\file2.txt
+          "test" | Out-File -FilePath test_dropbox_ignore\folder2\file3.txt
+      
+      - name: Create test directory structure (macOS)
+        if: runner.os == 'macOS'
         run: |
           mkdir -p test_dropbox_ignore/folder1
           mkdir -p test_dropbox_ignore/folder2
           echo "test" > test_dropbox_ignore/file1.txt
           echo "test" > test_dropbox_ignore/folder1/file2.txt
+          echo "test" > test_dropbox_ignore/folder2/file3.txt
       
-      - name: Test basic ignore functionality
+      - name: Test basic ignore functionality (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dropblock test_dropbox_ignore\file1.txt --no-output
+      
+      - name: Test basic ignore functionality (macOS)
+        if: runner.os == 'macOS'
         run: |
           dropblock test_dropbox_ignore/file1.txt --no-output
       
-      - name: Test wildcard functionality
+      - name: Test wildcard functionality (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          dropblock test_dropbox_ignore/folder*/* --no-output
+          # Let dropblock handle the wildcard expansion
+          dropblock "test_dropbox_ignore\folder*\*" --no-output
       
-      - name: Cleanup
-        if: always()
-        shell: bash
+      - name: Test wildcard functionality (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          for file in test_dropbox_ignore/folder*/*; do
+            dropblock "$file" --no-output
+          done
+      
+      - name: Cleanup (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path test_dropbox_ignore) {
+            Remove-Item -Path test_dropbox_ignore -Recurse -Force
+          }
+      
+      - name: Cleanup (macOS)
+        if: always() && runner.os == 'macOS'
         run: |
           rm -rf test_dropbox_ignore
