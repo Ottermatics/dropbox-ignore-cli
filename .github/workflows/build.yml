@@ -150,8 +150,9 @@ jobs:
           dropblock test_dropbox_ignore/file1.txt --no-output
       
       - name: Test wildcard functionality
+        shell: bash
         run: |
-          dropblock test_dropbox_ignore/folder*/* --no-output
+          dropblock "test_dropbox_ignore/folder*/*" --no-output
       
       - name: Cleanup
         if: always()
