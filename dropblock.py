@@ -10,6 +10,7 @@ import subprocess
 import argparse
 import glob
 import re
+import traceback
 from pathlib import Path
 from typing import List, Optional, Set
 
@@ -59,7 +60,8 @@ class DropboxIgnore:
                 if self.verbose:
                     print(f"Removed conflict: {conflict}")
             except Exception as e:
-                print(f"Warning: Could not remove conflict {conflict}: {e}", file=sys.stderr)
+                print(f"Error removing conflict {conflict}:", file=sys.stderr)
+                traceback.print_exc()
     
     def windows_ignore(self, path: Path) -> bool:
         """Ignore file/folder on Windows using PowerShell"""
@@ -71,8 +73,8 @@ class DropboxIgnore:
             result = subprocess.run(ps_command, capture_output=True, text=True)
             return result.returncode == 0
         except Exception as e:
-            if self.verbose:
-                print(f"Error ignoring on Windows: {e}", file=sys.stderr)
+            print(f"Error ignoring on Windows:", file=sys.stderr)
+            traceback.print_exc()
             return False
     
     def macos_ignore(self, path: Path) -> bool:
@@ -90,8 +92,8 @@ class DropboxIgnore:
             result = subprocess.run(cmd, capture_output=True, text=True)
             return result.returncode == 0
         except Exception as e:
-            if self.verbose:
-                print(f"Error ignoring on macOS: {e}", file=sys.stderr)
+            print(f"Error ignoring on macOS:", file=sys.stderr)
+            traceback.print_exc()
             return False
     
     def linux_ignore(self, path: Path) -> bool:
@@ -99,7 +101,7 @@ class DropboxIgnore:
         try:
             # Linux uses attr command or xattr depending on distribution
             # Try xattr first
-            cmd = ['xattr', '-w', 'com.dropbox.ignored', '1', str(path)]
+            cmd = ['attr', '-w', 'com.dropbox.ignored', '1', str(path)]
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
@@ -109,8 +111,8 @@ class DropboxIgnore:
             
             return result.returncode == 0
         except Exception as e:
-            if self.verbose:
-                print(f"Error ignoring on Linux: {e}", file=sys.stderr)
+            print(f"Error ignoring on Linux:", file=sys.stderr)
+            traceback.print_exc()
             return False
     
     def cross_platform_ignore(self, path: Path) -> bool:
@@ -207,7 +209,13 @@ def main():
         action='store_true',
         help='Verbose output'
     )
-    
+    # 
+    # parser.add_argument(
+    #     '--debug',
+    #     action='store_true',
+    #     help='Show debug output and tracebacks (also enabled by DEBUG environment variable)'
+    # )
+    # 
     args = parser.parse_args()
     
     # Create DropboxIgnore instance
