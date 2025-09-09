@@ -1,0 +1,189 @@
+name: Publish to PyPI and Create Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get version from pyproject.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+      
+      - name: Check if version already released
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          
+          # Check if Python or TOML files have changed
+          if git diff --name-only HEAD^ HEAD 2>/dev/null | grep -E '\.(py|toml)$' || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Python or TOML files have changed or manual trigger"
+            
+            # Check if a release with this version already exists
+            if git tag | grep -q "^v$VERSION$"; then
+              echo "::error::Version $VERSION already exists as a release. Please update the version in pyproject.toml"
+              exit 1
+            fi
+          fi
+
+  test:
+    needs: check-version
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.11']
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+      
+      - name: Check formatting with Black (strict)
+        run: |
+          black --check dropblock.py test/
+          if [ $? -ne 0 ]; then
+            echo "::error::Code is not properly formatted with Black. Run 'black .' to fix formatting before publishing."
+            exit 1
+          fi
+      
+      - name: Run tests
+        run: |
+          python -m pytest test/ -v
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: |
+          python -m build
+      
+      - name: Check package
+        run: |
+          twine check dist/*
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    needs: [build, check-version]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dropblock/
+    permissions:
+      id-token: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist/
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          print-hash: true
+
+  create-release:
+    needs: [publish-pypi, check-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist/
+      
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          echo "# Release v$VERSION" > release_notes.md
+          echo "" >> release_notes.md
+          echo "## Changes" >> release_notes.md
+          echo "" >> release_notes.md
+          
+          # Get commit messages since last tag
+          if git describe --tags --abbrev=0 HEAD^ 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0 HEAD^)
+            git log --pretty=format:"- %s" $LAST_TAG..HEAD >> release_notes.md
+          else
+            git log --pretty=format:"- %s" >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "pip install dropblock==$VERSION" >> release_notes.md
+          echo '```' >> release_notes.md
+          
+          echo "" >> release_notes.md
+          echo "## Platform Support" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "- ✅ Windows" >> release_notes.md
+          echo "- ✅ macOS" >> release_notes.md
+          echo "- ✅ Linux" >> release_notes.md
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: Release v${{ needs.check-version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
