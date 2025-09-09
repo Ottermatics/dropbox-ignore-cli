@@ -141,6 +141,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path test_dropbox_ignore
           New-Item -ItemType Directory -Force -Path test_dropbox_ignore\folder1
           New-Item -ItemType Directory -Force -Path test_dropbox_ignore\folder2
           "test" | Out-File -FilePath test_dropbox_ignore\file1.txt
