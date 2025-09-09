@@ -1,0 +1,139 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if version needs updating
+        run: |
+          # Check if Python or TOML files have changed
+          if git diff --name-only HEAD^ HEAD | grep -E '\.(py|toml)$'; then
+            echo "Python or TOML files have changed"
+            
+            # Extract version from pyproject.toml
+            VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+            echo "Current version: $VERSION"
+            
+            # Check if a release with this version already exists
+            if git tag | grep -q "^v$VERSION$"; then
+              echo "::error::Version $VERSION already exists as a release. Please update the version in pyproject.toml"
+              exit 1
+            fi
+          fi
+
+  test:
+    needs: check-version
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: [ '3.9', '3.10', '3.11', '3.12']
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+      
+      - name: Check formatting with Black
+        id: black_check
+        continue-on-error: true
+        run: |
+          black --check dropblock.py test/
+      
+      - name: Format code with Black and commit (if needed)
+        if: steps.black_check.outcome == 'failure' && github.event_name == 'pull_request'
+        run: |
+          black dropblock.py test/
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit after formatting"
+          else
+            git commit -m "Auto-format code with Black"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run tests
+        run: |
+          python -m pytest test/ -v
+      
+      - name: Upload coverage reports
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  integration-test:
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Test CLI installation
+        run: |
+          dropblock --help
+      
+      - name: Create test directory structure
+        run: |
+          mkdir -p test_dropbox_ignore/folder1
+          mkdir -p test_dropbox_ignore/folder2
+          echo "test" > test_dropbox_ignore/file1.txt
+          echo "test" > test_dropbox_ignore/folder1/file2.txt
+      
+      - name: Test basic ignore functionality
+        run: |
+          dropblock test_dropbox_ignore/file1.txt --no-output
+      
+      - name: Test wildcard functionality
+        run: |
+          dropblock test_dropbox_ignore/folder*/* --no-output
+      
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          rm -rf test_dropbox_ignore
