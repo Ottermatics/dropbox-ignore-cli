@@ -187,7 +187,7 @@ class TestDropblockActual(unittest.TestCase):
         # First check if attr command is available
         try:
             result = subprocess.run(
-                ["attr", "-l", str(self.test_file)],
+                ["attr", "-l", "./"],
                 capture_output=True,
                 text=True,
                 check=False
