@@ -127,7 +127,7 @@ class TestDropblockActual(unittest.TestCase):
         # Test parent/* pattern
         paths = ignorer.process_path(str(parent) + "/*")
         self.assertEqual(len(paths), 1)
-        self.assertEqual(paths[0], parent)
+        self.assertEqual(paths[0].resolve(), parent.resolve())
 
     @unittest.skipUnless(platform.system() == "Windows", "Windows-only test")
     def test_windows_ignore_real(self):

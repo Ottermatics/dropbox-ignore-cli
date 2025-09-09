@@ -183,7 +183,7 @@ class TestDropblockPlatforms(unittest.TestCase):
         parent_folder.mkdir()
         paths = ignorer.process_path(str(parent_folder) + "/*")
         self.assertEqual(len(paths), 1)
-        self.assertEqual(paths[0], parent_folder)
+        self.assertEqual(paths[0].resolve(), parent_folder.resolve())
 
         # Test glob pattern
         subfolders = []
