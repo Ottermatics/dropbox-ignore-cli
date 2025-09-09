@@ -31,10 +31,52 @@ jobs:
             fi
           fi
 
-  test:
-    needs: check-version
+  format-check:
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Black
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+      
+      - name: Check formatting with Black
+        id: black_check
+        continue-on-error: true
+        run: |
+          black --check dropblock.py test/
+      
+      - name: Format code with Black and commit (if needed)
+        if: steps.black_check.outcome == 'failure' && github.event_name == 'pull_request'
+        run: |
+          black dropblock.py test/
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit after formatting"
+          else
+            git commit -m "Auto-format code with Black"
+            # Pull any changes that might have been pushed by other jobs
+            git pull origin ${{ github.head_ref }} --rebase
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    needs: [check-version, format-check]
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -57,28 +99,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,test]"
-      
-      - name: Check formatting with Black
-        id: black_check
-        continue-on-error: true
-        run: |
-          black --check dropblock.py test/
-      
-      - name: Format code with Black and commit (if needed)
-        if: steps.black_check.outcome == 'failure' && github.event_name == 'pull_request'
-        run: |
-          black dropblock.py test/
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to commit after formatting"
-          else
-            git commit -m "Auto-format code with Black"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Run tests
         run: |
