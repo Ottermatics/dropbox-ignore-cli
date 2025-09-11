@@ -1,6 +1,6 @@
 # dropblock
 
-A cross-platform CLI tool to ignore files and folders in Dropbox using platform-specific methods.
+A cross-platform CLI tool to ignore or unblock files and folders in Dropbox using platform-specific methods.
 
 ## Features
 
@@ -8,6 +8,7 @@ A cross-platform CLI tool to ignore files and folders in Dropbox using platform-
 - Wildcard and glob pattern support
 - Automatic detection and removal of Dropbox conflicted copies
 - Batch processing of multiple paths
+- Unblock (reverse) operation to restore syncing
 - Verbose and quiet modes
 
 ## Installation
