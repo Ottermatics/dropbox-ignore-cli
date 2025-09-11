@@ -3,7 +3,7 @@ name: Publish to PyPI and Create Release
 on:
   workflow_dispatch:
   push:
-    [main]
+    branches: [main]
 
 jobs:
   check-version:
