@@ -18,10 +18,12 @@ from typing import List, Optional, Set
 class DropboxIgnore:
     """Main class for handling Dropbox ignore operations"""
 
-    def __init__(self, ignore_conflicts: bool = False, verbose: bool = False):
+    def __init__(self, ignore_conflicts: bool = False, verbose: bool = False, unblock: bool = False):
         self.ignore_conflicts = ignore_conflicts
         self.verbose = verbose
+        self.unblock = unblock
         self.ignored_files: Set[str] = set()
+        self.unblocked_files: Set[str] = set()
         self.removed_conflicts: Set[str] = set()
         self.system = platform.system()
 
@@ -64,56 +66,59 @@ class DropboxIgnore:
                 print(f"Error removing conflict {conflict}:", file=sys.stderr)
                 traceback.print_exc()
 
-    def windows_ignore(self, path: Path) -> bool:
-        """Ignore file/folder on Windows using PowerShell"""
+    def windows_ignore(self, path: Path, block: bool = True) -> bool:
+        """Ignore or unblock file/folder on Windows using PowerShell"""
         try:
-            ps_command = [
-                "powershell",
-                "-Command",
-                f"Set-Content -Path '{str(path)}' -Stream com.dropbox.ignored -Value 1",
-            ]
+            if block:
+                ps_command = [
+                    "powershell",
+                    "-Command",
+                    f"Set-Content -Path '{str(path)}' -Stream com.dropbox.ignored -Value 1",
+                ]
+            else:
+                ps_command = [
+                    "powershell",
+                    "-Command",
+                    f"Clear-Content -Path '{str(path)}' -Stream com.dropbox.ignored",
+                ]
             result = subprocess.run(ps_command, capture_output=True, text=True)
             return result.returncode == 0
         except Exception as e:
-            print(f"Error ignoring on Windows:", file=sys.stderr)
+            action = "ignoring" if block else "unblocking"
+            print(f"Error {action} on Windows:", file=sys.stderr)
             traceback.print_exc()
             return False
 
-    def macos_ignore(self, path: Path) -> bool:
-        """Ignore file/folder on macOS using xattr"""
+    def macos_ignore(self, path: Path, block: bool = True) -> bool:
+        """Ignore or unblock file/folder on macOS using xattr"""
         try:
-            # Check if File Provider is being used
-            dropbox_path = str(path)
-            if "CloudStorage/Dropbox" in dropbox_path:
-                # File Provider enabled
-                cmd = ["xattr", "-w", "com.apple.fileprovider.ignore#P", "1", str(path)]
-            else:
-                # File Provider not enabled
+            if block:
                 cmd = ["xattr", "-w", "com.dropbox.ignored", "1", str(path)]
+            else:
+                cmd = ["xattr", "-d", "com.dropbox.ignored", str(path)]
 
             result = subprocess.run(cmd, capture_output=True, text=True)
             return result.returncode == 0
+        
         except Exception as e:
-            print(f"Error ignoring on macOS:", file=sys.stderr)
+            action = "ignoring" if block else "unblocking"
+            print(f"Error {action} on macOS:", file=sys.stderr)
             traceback.print_exc()
             return False
 
-    def linux_ignore(self, path: Path) -> bool:
-        """Ignore file/folder on Linux using xattr"""
+    def linux_ignore(self, path: Path, block: bool = True) -> bool:
+        """Ignore or unblock file/folder on Linux using xattr"""
         try:
-            # Linux uses attr command or xattr depending on distribution
-            # Try xattr first
-            cmd = ["attr", "-w", "com.dropbox.ignored", "1", str(path)]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode != 0:
-                # Try attr command as fallback
+            if block:
                 cmd = ["attr", "-s", "com.dropbox.ignored", "-V", "1", str(path)]
-                result = subprocess.run(cmd, capture_output=True, text=True)
+            else:
+                cmd = ["attr", "-r", "com.dropbox.ignored", str(path)]
+            result = subprocess.run(cmd, capture_output=True, text=True)
 
             return result.returncode == 0
         except Exception as e:
-            print(f"Error ignoring on Linux:", file=sys.stderr)
+            action = "ignoring" if block else "unblocking"
+            print(f"Error {action} on Linux:", file=sys.stderr)
             traceback.print_exc()
             return False
 
@@ -123,26 +128,33 @@ class DropboxIgnore:
             print(f"Error: Path does not exist: {path}", file=sys.stderr)
             return False
 
-        # Remove conflicts first
-        self.remove_conflicts(path)
+        # Remove conflicts first (only when blocking)
+        if not self.unblock:
+            self.remove_conflicts(path)
 
         # Dispatch to platform-specific function
         if self.system == "Windows":
-            success = self.windows_ignore(path)
+            success = self.windows_ignore(path, block=not self.unblock)
         elif self.system == "Darwin":  # macOS
-            success = self.macos_ignore(path)
+            success = self.macos_ignore(path, block=not self.unblock)
         elif self.system == "Linux":
-            success = self.linux_ignore(path)
+            success = self.linux_ignore(path, block=not self.unblock)
         else:
             print(f"Error: Unsupported platform: {self.system}", file=sys.stderr)
             return False
 
         if success:
-            self.ignored_files.add(str(path))
-            if self.verbose:
-                print(f"Ignored: {path}")
+            if self.unblock:
+                self.unblocked_files.add(str(path))
+                if self.verbose:
+                    print(f"Unblocked: {path}")
+            else:
+                self.ignored_files.add(str(path))
+                if self.verbose:
+                    print(f"Ignored: {path}")
         else:
-            print(f"Failed to ignore: {path}", file=sys.stderr)
+            action = "unblock" if self.unblock else "ignore"
+            print(f"Failed to {action}: {path}", file=sys.stderr)
 
         return success
 
@@ -184,10 +196,16 @@ class DropboxIgnore:
 def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
-        description="Ignore files and folders in Dropbox", prog="dropblock"
+        description="Ignore or unblock files and folders in Dropbox", prog="dropblock"
     )
 
-    parser.add_argument("paths", nargs="+", help="Paths to ignore (supports wildcards)")
+    parser.add_argument("paths", nargs="+", help="Paths to ignore/unblock (supports wildcards)")
+
+    parser.add_argument(
+        "--unblock",
+        action="store_true",
+        help="Unblock files instead of ignoring them (reverse operation)"
+    )
 
     parser.add_argument(
         "--ignore-conflicts", action="store_true", help="Don't remove conflicted copies"
@@ -197,7 +215,7 @@ def main():
         "-n",
         "--no-output",
         action="store_true",
-        help="Suppress output of ignored files list",
+        help="Suppress output of ignored/unblocked files list",
     )
 
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
@@ -212,7 +230,7 @@ def main():
 
     # Create DropboxIgnore instance
     ignorer = DropboxIgnore(
-        ignore_conflicts=args.ignore_conflicts, verbose=args.verbose
+        ignore_conflicts=args.ignore_conflicts, verbose=args.verbose, unblock=args.unblock
     )
 
     # Process paths
@@ -220,21 +238,30 @@ def main():
 
     # Print summary unless --no-output is specified
     if not args.no_output:
-        if ignorer.ignored_files:
-            print("\nIgnored files/folders:")
-            for path in sorted(ignorer.ignored_files):
-                print(f"  ✓ {path}")
+        if args.unblock:
+            if ignorer.unblocked_files:
+                print("\nUnblocked files/folders:")
+                for path in sorted(ignorer.unblocked_files):
+                    print(f"  ✓ {path}")
+            
+            if not ignorer.unblocked_files:
+                print("No files were unblocked.")
+        else:
+            if ignorer.ignored_files:
+                print("\nIgnored files/folders:")
+                for path in sorted(ignorer.ignored_files):
+                    print(f"  ✓ {path}")
 
-        if ignorer.removed_conflicts:
-            print("\nRemoved conflicts:")
-            for path in sorted(ignorer.removed_conflicts):
-                print(f"  ✗ {path}")
+            if ignorer.removed_conflicts:
+                print("\nRemoved conflicts:")
+                for path in sorted(ignorer.removed_conflicts):
+                    print(f"  ✗ {path}")
 
-        if not ignorer.ignored_files and not ignorer.removed_conflicts:
-            print("No files were ignored.")
+            if not ignorer.ignored_files and not ignorer.removed_conflicts:
+                print("No files were ignored.")
 
     # Exit with appropriate code
-    sys.exit(0 if ignorer.ignored_files else 1)
+    sys.exit(0 if (ignorer.ignored_files or ignorer.unblocked_files) else 1)
 
 
 if __name__ == "__main__":
