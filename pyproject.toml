@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dropblock"
+name = "dropblock-cli"
 version = "1.0.0"
 description = "A cross-platform CLI tool to ignore files and folders in Dropbox"
 readme = "README.md"
@@ -36,6 +36,7 @@ Repository = "https://github.com/yourusername/dropblock"
 Issues = "https://github.com/yourusername/dropblock/issues"
 
 [project.scripts]
+dropblock-cli = "dropblock:main"
 dropblock = "dropblock:main"
 
 [project.optional-dependencies]
