@@ -87,7 +87,11 @@ class DropboxIgnore:
                     f"Clear-Content -Path '{str(path)}' -Stream com.dropbox.ignored",
                 ]
             result = subprocess.run(ps_command, capture_output=True, text=True)
-            return result.returncode == 0
+            print(result.stdout)
+            if result.returncode == 0:
+                return True
+            print(result.stderr)
+            return False
         except Exception as e:
             action = "ignoring" if block else "unblocking"
             print(f"Error {action} on Windows:", file=sys.stderr)
@@ -103,8 +107,11 @@ class DropboxIgnore:
                 cmd = ["xattr", "-d", "com.dropbox.ignored", str(path)]
 
             result = subprocess.run(cmd, capture_output=True, text=True)
-            return result.returncode == 0
-
+            print(result.stdout)
+            if result.returncode == 0:
+                return True
+            print(result.stderr)
+            return False
         except Exception as e:
             action = "ignoring" if block else "unblocking"
             print(f"Error {action} on macOS:", file=sys.stderr)
@@ -119,8 +126,12 @@ class DropboxIgnore:
             else:
                 cmd = ["attr", "-r", "com.dropbox.ignored", str(path)]
             result = subprocess.run(cmd, capture_output=True, text=True)
-
-            return result.returncode == 0
+            
+            print(result.stdout)
+            if result.returncode == 0:
+                return True
+            print(result.stderr)
+            return False
         except Exception as e:
             action = "ignoring" if block else "unblocking"
             print(f"Error {action} on Linux:", file=sys.stderr)
