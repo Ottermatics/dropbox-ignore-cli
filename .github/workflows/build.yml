@@ -161,7 +161,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          dropblock test_dropbox_ignore\file1.txt --no-output
+          python dropblock.py test_dropbox_ignore\file1.txt --no-output
       
       - name: Test basic ignore functionality (macOS)
         if: runner.os == 'macOS'
@@ -173,7 +173,7 @@ jobs:
         shell: pwsh
         run: |
           # Let dropblock handle the wildcard expansion
-          dropblock "test_dropbox_ignore\folder*\*" --no-output
+          python dropblock.py test_dropbox_ignore\folder*\* --no-output
       
       - name: Test wildcard functionality (macOS)
         if: runner.os == 'macOS'
@@ -181,16 +181,3 @@ jobs:
           for file in test_dropbox_ignore/folder*/*; do
             dropblock "$file" --no-output
           done
-      
-      - name: Cleanup (Windows)
-        if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (Test-Path test_dropbox_ignore) {
-            Remove-Item -Path test_dropbox_ignore -Recurse -Force
-          }
-      
-      - name: Cleanup (macOS)
-        if: always() && runner.os == 'macOS'
-        run: |
-          rm -rf test_dropbox_ignore
