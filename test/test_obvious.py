@@ -111,8 +111,9 @@ class TestDropblockPlatforms(unittest.TestCase):
             self.assertEqual(args[0], "attr")
             self.assertEqual(args[1], "-s")
             self.assertEqual(args[2], "com.dropbox.ignored")
-            self.assertEqual(args[3], "1")
-            self.assertEqual(args[4], str(self.test_file))
+            self.assertEqual(args[3], "-V")
+            self.assertEqual(args[5], "1")
+            self.assertEqual(args[6], str(self.test_file))
 
             # Test fallback to attr command
             mock_run.reset_mock()
