@@ -109,7 +109,7 @@ class TestDropblockPlatforms(unittest.TestCase):
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
             self.assertEqual(args[0], "attr")
-            self.assertEqual(args[1], "-w")
+            self.assertEqual(args[1], "-s")
             self.assertEqual(args[2], "com.dropbox.ignored")
             self.assertEqual(args[3], "1")
             self.assertEqual(args[4], str(self.test_file))
