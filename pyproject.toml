@@ -31,9 +31,9 @@ classifiers = [
 keywords = ["dropbox", "ignore", "sync", "cli", "utility"]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/dropblock"
-Repository = "https://github.com/yourusername/dropblock"
-Issues = "https://github.com/yourusername/dropblock/issues"
+Homepage = "https://github.com/Ottermatics/dropbox-ignore-cli"
+Repository = "https://github.com/Ottermatics/dropbox-ignore-cli"
+Issues = "https://github.com/Ottermatics/dropbox-ignore-cli/issues"
 
 [project.scripts]
 dropblock-cli = "dropblock:main"
