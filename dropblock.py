@@ -126,7 +126,7 @@ class DropboxIgnore:
             else:
                 cmd = ["attr", "-r", "com.dropbox.ignored", str(path)]
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             print(result.stdout)
             if result.returncode == 0:
                 return True
