@@ -159,9 +159,8 @@ jobs:
       
       - name: Test basic ignore functionality (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
         run: |
-          python dropblock.py test_dropbox_ignore\file1.txt --no-output
+          python -m dropblock test_dropbox_ignore\file1.txt --no-output
       
       - name: Test basic ignore functionality (macOS)
         if: runner.os == 'macOS'
@@ -170,10 +169,9 @@ jobs:
       
       - name: Test wildcard functionality (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
         run: |
           # Let dropblock handle the wildcard expansion
-          python dropblock.py test_dropbox_ignore\folder*\* --no-output
+          python -m dropblock test_dropbox_ignore\folder*\* --no-output
       
       - name: Test wildcard functionality (macOS)
         if: runner.os == 'macOS'
