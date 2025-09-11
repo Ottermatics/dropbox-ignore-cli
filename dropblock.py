@@ -18,7 +18,12 @@ from typing import List, Optional, Set
 class DropboxIgnore:
     """Main class for handling Dropbox ignore operations"""
 
-    def __init__(self, ignore_conflicts: bool = False, verbose: bool = False, unblock: bool = False):
+    def __init__(
+        self,
+        ignore_conflicts: bool = False,
+        verbose: bool = False,
+        unblock: bool = False,
+    ):
         self.ignore_conflicts = ignore_conflicts
         self.verbose = verbose
         self.unblock = unblock
@@ -99,7 +104,7 @@ class DropboxIgnore:
 
             result = subprocess.run(cmd, capture_output=True, text=True)
             return result.returncode == 0
-        
+
         except Exception as e:
             action = "ignoring" if block else "unblocking"
             print(f"Error {action} on macOS:", file=sys.stderr)
@@ -199,12 +204,14 @@ def main():
         description="Ignore or unblock files and folders in Dropbox", prog="dropblock"
     )
 
-    parser.add_argument("paths", nargs="+", help="Paths to ignore/unblock (supports wildcards)")
+    parser.add_argument(
+        "paths", nargs="+", help="Paths to ignore/unblock (supports wildcards)"
+    )
 
     parser.add_argument(
         "--unblock",
         action="store_true",
-        help="Unblock files instead of ignoring them (reverse operation)"
+        help="Unblock files instead of ignoring them (reverse operation)",
     )
 
     parser.add_argument(
@@ -230,7 +237,9 @@ def main():
 
     # Create DropboxIgnore instance
     ignorer = DropboxIgnore(
-        ignore_conflicts=args.ignore_conflicts, verbose=args.verbose, unblock=args.unblock
+        ignore_conflicts=args.ignore_conflicts,
+        verbose=args.verbose,
+        unblock=args.unblock,
     )
 
     # Process paths
@@ -243,7 +252,7 @@ def main():
                 print("\nUnblocked files/folders:")
                 for path in sorted(ignorer.unblocked_files):
                     print(f"  ✓ {path}")
-            
+
             if not ignorer.unblocked_files:
                 print("No files were unblocked.")
         else:
