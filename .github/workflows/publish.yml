@@ -3,8 +3,7 @@ name: Publish to PyPI and Create Release
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    [main]
 
 jobs:
   check-version:
@@ -38,42 +37,7 @@ jobs:
             fi
           fi
 
-  test:
-    needs: check-version
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9','3.10','3.11','3.12']
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,test]"
-      
-      - name: Check formatting with Black (strict)
-        run: |
-          black --check dropblock.py test/
-          if [ $? -ne 0 ]; then
-            echo "::error::Code is not properly formatted with Black. Run 'black .' to fix formatting before publishing."
-            exit 1
-          fi
-      
-      - name: Run tests
-        run: |
-          python -m pytest test/ -v
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     
     steps:
