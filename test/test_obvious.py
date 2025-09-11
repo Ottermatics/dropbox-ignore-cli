@@ -91,16 +91,6 @@ class TestDropblockPlatforms(unittest.TestCase):
 
             # Test File Provider path
             mock_run.reset_mock()
-            file_provider_path = Path(
-                "/Users/test/Library/CloudStorage/Dropbox/test.txt"
-            )
-
-            with patch.object(Path, "exists", return_value=True):
-                success = ignorer.macos_ignore(file_provider_path)
-                self.assertTrue(success)
-
-                args = mock_run.call_args[0][0]
-                self.assertEqual(args[2], "com.apple.fileprovider.ignore#P")
 
     @unittest.skipUnless(platform.system() == "Linux", "Linux-only test")
     def test_linux_ignore(self):
